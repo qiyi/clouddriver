@@ -18,6 +18,7 @@ package com.netflix.spinnaker.clouddriver.aws.security;
 
 import com.amazonaws.AmazonWebServiceClient;
 import com.amazonaws.ClientConfiguration;
+import com.amazonaws.Protocol;
 import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.handlers.RequestHandler2;
 import com.amazonaws.regions.Region;
@@ -59,6 +60,7 @@ import java.util.Map;
 public class AmazonClientProvider {
 
   private final HttpClient httpClient;
+  private final ClientConfiguration clientConfiguration;
   private final ObjectMapper objectMapper;
   private final EddaTemplater eddaTemplater;
   private final RetryPolicy retryPolicy;
@@ -66,6 +68,12 @@ public class AmazonClientProvider {
 
   public static class Builder {
     private HttpClient httpClient;
+    private Protocol protocol;
+    private String proxyHost;
+    private int proxyPort;
+    private String proxyUsername;
+    private String proxyPassword;
+    private boolean preemptiveBasicProxyAuth;
     private ObjectMapper objectMapper;
     private EddaTemplater eddaTemplater;
     private RetryPolicy.RetryCondition retryCondition;
@@ -103,6 +111,36 @@ public class AmazonClientProvider {
       return this;
     }
 
+    public Builder protocol(String protocol) {
+      this.protocol = Protocol.HTTPS.name().equalsIgnoreCase(protocol) ? Protocol.HTTPS : Protocol.HTTP;
+      return this;
+    }
+
+    public Builder proxyHost(String proxyHost) {
+      this.proxyHost = proxyHost;
+      return this;
+    }
+
+    public Builder proxyPort(int proxyPort) {
+      this.proxyPort = proxyPort;
+      return this;
+    }
+
+    public Builder proxyUsername(String proxyUsername) {
+      this.proxyUsername = proxyUsername;
+      return this;
+    }
+
+    public Builder proxyPassword(String proxyPassword) {
+      this.proxyPassword = proxyPassword;
+      return this;
+    }
+
+    public Builder preemptiveBasicProxyAuth(boolean preemptiveBasicProxyAuth) {
+      this.preemptiveBasicProxyAuth = preemptiveBasicProxyAuth;
+      return this;
+    }
+
     public Builder requestHandler(RequestHandler2 requestHandler) {
       this.requestHandlers.add(requestHandler);
       return this;
@@ -110,11 +148,20 @@ public class AmazonClientProvider {
 
     public AmazonClientProvider build() {
       HttpClient client = this.httpClient == null ? HttpClients.createDefault() : this.httpClient;
+      ClientConfiguration clientConfiguration = new ClientConfiguration();
+      if (this.proxyHost != null) {
+        clientConfiguration.setProxyHost(this.proxyHost);
+        clientConfiguration.setProxyPort(this.proxyPort);
+        clientConfiguration.setProxyUsername(this.proxyUsername);
+        clientConfiguration.setProxyPassword(this.proxyPassword);
+        clientConfiguration.setPreemptiveBasicProxyAuth(this.preemptiveBasicProxyAuth);
+      }
+
       ObjectMapper mapper = this.objectMapper == null ? new AmazonObjectMapper() : this.objectMapper;
       EddaTemplater templater = this.eddaTemplater == null ? EddaTemplater.defaultTemplater() : this.eddaTemplater;
       RetryPolicy policy = buildPolicy();
 
-      return new AmazonClientProvider(client, mapper, templater, policy, requestHandlers);
+      return new AmazonClientProvider(client, clientConfiguration, mapper, templater, policy, requestHandlers);
     }
 
     private RetryPolicy buildPolicy() {
@@ -145,7 +192,7 @@ public class AmazonClientProvider {
   }
 
   public AmazonClientProvider(HttpClient httpClient, ObjectMapper objectMapper) {
-    this(httpClient == null ? HttpClients.createDefault() : httpClient, objectMapper == null ? new AmazonObjectMapper() : objectMapper, EddaTemplater.defaultTemplater(), PredefinedRetryPolicies.getDefaultRetryPolicy(), Collections.emptyList());
+    this(httpClient == null ? HttpClients.createDefault() : httpClient, new ClientConfiguration() , objectMapper == null ? new AmazonObjectMapper() : objectMapper, EddaTemplater.defaultTemplater(), PredefinedRetryPolicies.getDefaultRetryPolicy(), Collections.emptyList());
   }
 
   public static <T> T notNull(T obj, String name) {
@@ -155,8 +202,9 @@ public class AmazonClientProvider {
     return obj;
   }
 
-  public AmazonClientProvider(HttpClient httpClient, ObjectMapper objectMapper, EddaTemplater eddaTemplater, RetryPolicy retryPolicy, List<RequestHandler2> requestHandlers) {
+  public AmazonClientProvider(HttpClient httpClient, ClientConfiguration clientConfiguration, ObjectMapper objectMapper, EddaTemplater eddaTemplater, RetryPolicy retryPolicy, List<RequestHandler2> requestHandlers) {
     this.httpClient = notNull(httpClient, "httpClient");
+    this.clientConfiguration = notNull(clientConfiguration, "cilentConfiguration");
     this.objectMapper = notNull(objectMapper, "objectMapper");
     this.eddaTemplater = notNull(eddaTemplater, "eddaTemplater");
     this.retryPolicy = notNull(retryPolicy, "retryPolicy");
@@ -278,7 +326,6 @@ public class AmazonClientProvider {
     InstantiationException, NoSuchMethodException {
     Constructor<T> constructor = impl.getConstructor(AWSCredentialsProvider.class, ClientConfiguration.class);
 
-    ClientConfiguration clientConfiguration = new ClientConfiguration();
     clientConfiguration.setRetryPolicy(retryPolicy);
 
     T delegate = constructor.newInstance(amazonCredentials.getCredentialsProvider(), clientConfiguration);

@@ -70,6 +70,24 @@ class AwsConfiguration {
   @Value('${aws.client.maxErrorRetry:3}')
   int maxErrorRetry
 
+  @Value('${aws.client.protocol:https}')
+  String protocol
+
+  @Value('${aws.client.proxyHost')
+  String proxyHost
+
+  @Value('${aws.client.proxyPort:80')
+  int proxyPort
+
+  @Value('${aws.client.proxyUsername')
+  String proxyUsername
+
+  @Value('${aws.client.proxyPassword}')
+  String proxyPassword
+
+  @Value('${aws.client.preemptiveBasicProxyAuth:false}')
+  boolean preemptiveBasicProxyAuth
+
   @Autowired
   SpectatorMetricsCollector spectatorMetricsCollector
 
@@ -82,12 +100,19 @@ class AwsConfiguration {
 
   @Bean
   AmazonClientProvider amazonClientProvider(RetryPolicy.RetryCondition instrumentedRetryCondition, RetryPolicy.BackoffStrategy instrumentedBackoffStrategy) {
-    new AmazonClientProvider.Builder()
-      .backoffStrategy(instrumentedBackoffStrategy)
-      .retryCondition(instrumentedRetryCondition)
-      .objectMapper(amazonObjectMapper())
-      .maxErrorRetry(maxErrorRetry)
-      .build()
+    def builder = new AmazonClientProvider.Builder()
+        .backoffStrategy(instrumentedBackoffStrategy)
+        .retryCondition(instrumentedRetryCondition)
+        .objectMapper(amazonObjectMapper())
+        .maxErrorRetry(maxErrorRetry)
+    if (proxyHost != null) {
+      builder.proxyHost(proxyHost)
+          .proxyPort(proxyPort)
+          .proxyUsername(proxyUsername)
+          .proxyPassword(proxyPassword)
+          .preemptiveBasicProxyAuth(preemptiveBasicProxyAuth)
+    }
+    builder.build()
   }
 
   @Bean
