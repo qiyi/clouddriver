@@ -117,19 +117,13 @@ class AwsConfiguration {
 
   @Bean
   AmazonClientProvider amazonClientProvider(RetryPolicy.RetryCondition instrumentedRetryCondition, RetryPolicy.BackoffStrategy instrumentedBackoffStrategy) {
-    def builder = new AmazonClientProvider.Builder()
+    new AmazonClientProvider.Builder()
         .backoffStrategy(instrumentedBackoffStrategy)
         .retryCondition(instrumentedRetryCondition)
         .objectMapper(amazonObjectMapper())
         .maxErrorRetry(maxErrorRetry)
-    if (proxyHost != null) {
-      builder.proxyHost(proxyHost)
-          .proxyPort(proxyPort)
-          .proxyUsername(proxyUsername)
-          .proxyPassword(proxyPassword)
-          .preemptiveBasicProxyAuth(preemptiveBasicProxyAuth)
-    }
-    builder.build()
+        .cilentConfiguration(clientConfiguration())
+        .build()
   }
 
   @Bean
