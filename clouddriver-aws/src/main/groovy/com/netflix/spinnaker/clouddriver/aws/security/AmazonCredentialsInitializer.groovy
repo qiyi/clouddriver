@@ -16,6 +16,7 @@
 
 package com.netflix.spinnaker.clouddriver.aws.security
 
+import com.amazonaws.ClientConfiguration
 import com.amazonaws.auth.AWSCredentialsProvider
 import com.netflix.spinnaker.cats.module.CatsModule
 import com.netflix.spinnaker.cats.provider.ProviderSynchronizerTypeWrapper
@@ -64,8 +65,8 @@ class AmazonCredentialsInitializer implements CredentialsInitializerSynchronizab
 
   @Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
   @Bean
-  CredentialsLoader<? extends NetflixAmazonCredentials> credentialsLoader(AWSCredentialsProvider awsCredentialsProvider, Class<? extends NetflixAmazonCredentials> credentialsType) {
-    new CredentialsLoader<? extends NetflixAmazonCredentials>(awsCredentialsProvider, credentialsType)
+  CredentialsLoader<? extends NetflixAmazonCredentials> credentialsLoader(AWSCredentialsProvider awsCredentialsProvider, Class<? extends NetflixAmazonCredentials> credentialsType, ClientConfiguration clientConfiguration) {
+    new CredentialsLoader<? extends NetflixAmazonCredentials>(awsCredentialsProvider, new DefaultAWSAccountInfoLookup(awsCredentialsProvider, amazonClientProvider), credentialsType)
   }
 
   @Bean

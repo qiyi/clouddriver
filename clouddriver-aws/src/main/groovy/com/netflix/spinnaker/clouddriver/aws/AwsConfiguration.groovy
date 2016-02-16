@@ -16,6 +16,8 @@
 
 package com.netflix.spinnaker.clouddriver.aws
 
+import com.amazonaws.ClientConfiguration
+import com.amazonaws.Protocol
 import com.amazonaws.metrics.AwsSdkMetrics
 import com.amazonaws.retry.RetryPolicy
 import com.fasterxml.jackson.databind.ObjectMapper
@@ -96,6 +98,21 @@ class AwsConfiguration {
     if (!metricsEnabled) {
       AwsSdkMetrics.setMetricCollector(null)
     }
+  }
+
+  @Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
+  @Bean
+  ClientConfiguration clientConfiguration() {
+    ClientConfiguration clientConfiguration = new ClientConfiguration()
+    clientConfiguration.setProtocol(Protocol.HTTPS.name().equalsIgnoreCase(protocol) ? Protocol.HTTPS : Protocol.HTTP)
+    if (proxyHost != null) {
+      clientConfiguration.setProxyHost(proxyHost)
+      clientConfiguration.setProxyPort(proxyPort)
+      clientConfiguration.setProxyUsername(proxyUsername)
+      clientConfiguration.setProxyPassword(proxyPassword)
+      clientConfiguration.setPreemptiveBasicProxyAuth(preemptiveBasicProxyAuth)
+    }
+    clientConfiguration
   }
 
   @Bean

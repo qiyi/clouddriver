@@ -18,7 +18,6 @@ package com.netflix.spinnaker.clouddriver.aws.security;
 
 import com.amazonaws.AmazonWebServiceClient;
 import com.amazonaws.ClientConfiguration;
-import com.amazonaws.Protocol;
 import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.handlers.RequestHandler2;
 import com.amazonaws.regions.Region;
@@ -52,7 +51,6 @@ import java.lang.reflect.Proxy;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 
 /**
  * Provides of Amazon SDK Clients that can read through Edda.
@@ -68,12 +66,7 @@ public class AmazonClientProvider {
 
   public static class Builder {
     private HttpClient httpClient;
-    private Protocol protocol;
-    private String proxyHost;
-    private int proxyPort;
-    private String proxyUsername;
-    private String proxyPassword;
-    private boolean preemptiveBasicProxyAuth;
+    private ClientConfiguration clientConfiguration;
     private ObjectMapper objectMapper;
     private EddaTemplater eddaTemplater;
     private RetryPolicy.RetryCondition retryCondition;
@@ -111,33 +104,8 @@ public class AmazonClientProvider {
       return this;
     }
 
-    public Builder protocol(String protocol) {
-      this.protocol = Protocol.HTTPS.name().equalsIgnoreCase(protocol) ? Protocol.HTTPS : Protocol.HTTP;
-      return this;
-    }
-
-    public Builder proxyHost(String proxyHost) {
-      this.proxyHost = proxyHost;
-      return this;
-    }
-
-    public Builder proxyPort(int proxyPort) {
-      this.proxyPort = proxyPort;
-      return this;
-    }
-
-    public Builder proxyUsername(String proxyUsername) {
-      this.proxyUsername = proxyUsername;
-      return this;
-    }
-
-    public Builder proxyPassword(String proxyPassword) {
-      this.proxyPassword = proxyPassword;
-      return this;
-    }
-
-    public Builder preemptiveBasicProxyAuth(boolean preemptiveBasicProxyAuth) {
-      this.preemptiveBasicProxyAuth = preemptiveBasicProxyAuth;
+    public Builder cilentConfiguration(ClientConfiguration clientConfiguration) {
+      this.clientConfiguration = clientConfiguration;
       return this;
     }
 
@@ -148,14 +116,7 @@ public class AmazonClientProvider {
 
     public AmazonClientProvider build() {
       HttpClient client = this.httpClient == null ? HttpClients.createDefault() : this.httpClient;
-      ClientConfiguration clientConfiguration = new ClientConfiguration();
-      if (this.proxyHost != null) {
-        clientConfiguration.setProxyHost(this.proxyHost);
-        clientConfiguration.setProxyPort(this.proxyPort);
-        clientConfiguration.setProxyUsername(this.proxyUsername);
-        clientConfiguration.setProxyPassword(this.proxyPassword);
-        clientConfiguration.setPreemptiveBasicProxyAuth(this.preemptiveBasicProxyAuth);
-      }
+      ClientConfiguration clientConfiguration = this.clientConfiguration == null ?  new ClientConfiguration() : this.clientConfiguration;
 
       ObjectMapper mapper = this.objectMapper == null ? new AmazonObjectMapper() : this.objectMapper;
       EddaTemplater templater = this.eddaTemplater == null ? EddaTemplater.defaultTemplater() : this.eddaTemplater;
