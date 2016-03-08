@@ -118,12 +118,12 @@ class AwsConfiguration {
   @Bean
   AmazonClientProvider amazonClientProvider(RetryPolicy.RetryCondition instrumentedRetryCondition, RetryPolicy.BackoffStrategy instrumentedBackoffStrategy) {
     new AmazonClientProvider.Builder()
-        .backoffStrategy(instrumentedBackoffStrategy)
-        .retryCondition(instrumentedRetryCondition)
-        .objectMapper(amazonObjectMapper())
-        .maxErrorRetry(maxErrorRetry)
-        .cilentConfiguration(clientConfiguration())
-        .build()
+      .backoffStrategy(instrumentedBackoffStrategy)
+      .retryCondition(instrumentedRetryCondition)
+      .objectMapper(amazonObjectMapper())
+      .maxErrorRetry(maxErrorRetry)
+      .cilentConfiguration(clientConfiguration())
+      .build()
   }
 
   @Bean
