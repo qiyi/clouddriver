@@ -22,7 +22,7 @@ import com.netflix.spinnaker.clouddriver.kubernetes.deploy.validators.StandardKu
 class KubernetesContainerValidator {
   static void validate(KubernetesContainerDescription description, StandardKubernetesAttributeValidator helper, String prefix) {
     helper.validateName(description.name, "${prefix}.name")
-    helper.validateNotEmpty(description.image, "${prefix}.image")
+    helper.validateNotEmpty(description.imageDescription, "${prefix}.imageDescription")
 
     if (description.limits) {
       helper.validateCpu(description.limits.cpu, "${prefix}.limits.cpu")
@@ -32,6 +32,24 @@ class KubernetesContainerValidator {
     if (description.requests) {
       helper.validateCpu(description.requests.cpu, "${prefix}.requests.cpu")
       helper.validateMemory(description.requests.memory, "${prefix}.requests.memory")
+    }
+
+    description.ports?.eachWithIndex { port, i ->
+      if (port.name) {
+        helper.validateName(port.name, "${prefix}.ports[$i].name")
+      }
+      if (port.containerPort) {
+        helper.validatePort(port.containerPort, "${prefix}.ports[$i].containerPort")
+      }
+      if (port.hostPort) {
+        helper.validatePort(port.hostPort, "${prefix}.ports[$i].hostPort")
+      }
+      if (port.hostIp) {
+        helper.validateIpv4(port.hostIp, "${prefix}.ports[$i].hostIp")
+      }
+      if (port.protocol) {
+        helper.validateProtocol(port.protocol, "${prefix}.ports[$i].protocol")
+      }
     }
   }
 }

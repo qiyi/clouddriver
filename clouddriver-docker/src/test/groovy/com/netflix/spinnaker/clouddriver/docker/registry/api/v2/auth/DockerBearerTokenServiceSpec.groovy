@@ -17,6 +17,7 @@
 package com.netflix.spinnaker.clouddriver.docker.registry.api.v2.auth
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import spock.lang.Ignore
 import spock.lang.Shared
 import spock.lang.Specification
 

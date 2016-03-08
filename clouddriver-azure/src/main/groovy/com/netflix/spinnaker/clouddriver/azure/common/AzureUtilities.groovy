@@ -16,6 +16,7 @@
 
 package com.netflix.spinnaker.clouddriver.azure.common
 
+import com.microsoft.windowsazure.core.utils.CollectionStringBuilder
 import com.netflix.spinnaker.clouddriver.azure.resources.common.AzureResourceOpsDescription
 
 import java.util.regex.Matcher
@@ -29,12 +30,16 @@ class AzureUtilities {
   static final String SUBNET_NAME_PREFIX = "subnet-"
   static final String PUBLICIP_NAME_PREFIX = "pip-"
   static final String LBFRONTEND_NAME_PREFIX = "fe-"
+  static final String LBBACKEND_NAME_PREFIX = "be-"
   static final String DNS_NAME_PREFIX = "dns-"
   static final String IPCONFIG_NAME_PREFIX = "ipc-"
   static final String NETWORK_INTERFACE_PREFIX = "nic-"
   static final Pattern IPV4_PREFIX_REGEX = ~/^(?<addr3>\d+)\.(?<addr2>\d+)\.(?<addr1>\d+)\.(?<addr0>\d+)\/(?<length>\d+)$/
 
   static String getResourceNameFromID(String resourceId) {
+    if (resourceId == null) {
+      return null
+    }
     int idx = resourceId.lastIndexOf(PATH_SEPARATOR)
     if (idx > 0) {
       return resourceId.substring(idx + 1)
@@ -43,33 +48,59 @@ class AzureUtilities {
   }
 
   static String getResourceGroupName(AzureResourceOpsDescription description) {
+    if (description == null) {
+      return null
+    }
     description.appName + NAME_SEPARATOR + description.region
   }
 
   static String getVirtualNetworkName(AzureResourceOpsDescription description) {
+    if (description == null) {
+      return null
+    }
     VNET_NAME_PREFIX + getResourceGroupName(description)
   }
 
   static String getVirtualNetworkName(String resourceGroupName) {
+    if (resourceGroupName == null) {
+      return null
+    }
     VNET_NAME_PREFIX + resourceGroupName
   }
 
   static String getSubnetName(String virtualNetworkName, String addressPrefix) {
+    if (virtualNetworkName == null || addressPrefix == null) {
+      return null
+    }
+
     String addressPrefixSanitized = addressPrefix.replaceAll('[\\./]', '_')
     virtualNetworkName + NAME_SEPARATOR + SUBNET_NAME_PREFIX + addressPrefixSanitized
   }
 
   static String getResourceGroupName(String appName, String region) {
+    if (appName == null || region == null) {
+      return null
+    }
     appName + NAME_SEPARATOR + region.replace(' ', '').toLowerCase()
   }
 
   static String getResourceGroupLocation(AzureResourceOpsDescription description) {
+    if (description == null) {
+      return null
+    }
     def resourceGroupName = getResourceGroupName(description)
+    if (resourceGroupName == null) {
+      return null
+    }
 
     description.credentials.getResourceManagerClient().getResourceGroupLocation(resourceGroupName, description.getCredentials())
   }
 
   static String getResourceGroupNameFromResourceId(String resourceId) {
+    if (resourceId == null) {
+      return null
+    }
+
     def parts = resourceId.split(PATH_SEPARATOR)
     def idx = parts.findIndexOf {it == "resourceGroups"}
     def resourceGroupName = "unknown"
@@ -82,18 +113,34 @@ class AzureUtilities {
   }
 
   static String getAppNameFromAzureResourceName(String azureResourceName) {
+    if (azureResourceName == null) {
+      return null
+    }
+
     azureResourceName.split(NAME_SEPARATOR).first()
   }
 
   static String getAppNameFromResourceId(String resourceId) {
+    if (resourceId == null) {
+      return null
+    }
+
     getResourceGroupNameFromResourceId(resourceId).split(NAME_SEPARATOR).first()
   }
 
   static String getLocationFromResourceGroupName(String resourceId) {
+    if (resourceId == null) {
+      return null
+    }
+
     getResourceGroupNameFromResourceId(resourceId).split(NAME_SEPARATOR).last()
   }
 
   static String getNameFromResourceId(String resourceId) {
+    if (resourceId == null) {
+      return null
+    }
+
     resourceId.split(PATH_SEPARATOR).last()
   }
 
@@ -193,5 +240,26 @@ class AzureUtilities {
       throw new ArithmeticException("Overflow occurred getting next valid subnet after $subnetAddrPrefix within vnet $vnetAddrPrefix")
     }
     return resultPrefix
+  }
+
+  public static String getAzureRESTUrl(String subscriptionId, String baseUrl, String targetUrl, List<String> queryParameters) {
+    String url = baseUrl
+    // Trim '/' character from the end of baseUrl.
+    if (url && url.charAt(url.length() - 1) == (char) '/') {
+      url = url.substring(0, (url.length() - 1) + 0)
+    }
+    url += "/subscriptions/"
+    if (subscriptionId != null) {
+      url = url + URLEncoder.encode(subscriptionId, "UTF-8")
+    }
+    if (targetUrl && targetUrl.charAt(0) != (char) '/')
+      url += "/"
+    url += targetUrl
+    if (queryParameters && queryParameters.size() > 0) {
+      url = url + "?" + CollectionStringBuilder.join(queryParameters, "&")
+    }
+    url = url.replace(" ", "%20")
+
+    url
   }
 }

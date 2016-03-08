@@ -42,6 +42,7 @@ class AzureServerGroupResourceTemplateSpec extends Specification {
     description.detail = 'd11'
     description.region = 'westus'
     description.user = '[anonymous]'
+    description.loadBalancerName = 'azureMASM-st1-d11'
 
     description.upgradePolicy = AzureServerGroupDescription.UpgradePolicy.Manual
 
@@ -85,7 +86,7 @@ class AzureServerGroupResourceTemplateSpec extends Specification {
   },
   "variables" : {
     "newStorageAccountSuffix" : "sa",
-    "vhdContainerName" : "azureMASM-st1-d11",
+    "vhdContainerName" : "azuremasm-st1-d11",
     "osType" : {
       "publisher" : "Canonical",
       "offer" : "UbuntuServer",
@@ -93,7 +94,7 @@ class AzureServerGroupResourceTemplateSpec extends Specification {
       "version" : "latest"
     },
     "imageReference" : "[variables('osType')]",
-    "uniqueStorageNameArray" : [ "[concat(uniqueString(concat(resourceGroup().id, variables('newStorageAccountSuffix'), '0')))]" ]
+    "uniqueStorageNameArray" : [ "[concat(uniqueString(concat(resourceGroup().id, subscription().id, 'azuremasmst1d11', variables('newStorageAccountSuffix'), '0')))]" ]
   },
   "resources" : [ {
     "apiVersion" : "2015-06-15",
@@ -157,7 +158,10 @@ class AzureServerGroupResourceTemplateSpec extends Specification {
                 "properties" : {
                   "subnet" : {
                     "id" : "[parameters('subnetId')]"
-                  }
+                  },
+                  "loadBalancerBackendAddressPools" : [ {
+                    "id" : "[resourceId('Microsoft.Network/loadBalancers/backendAddressPools', 'azureMASM-st1-d11', 'be-azureMASM-st1-d11')]"
+                  } ]
                 }
               } ]
             }

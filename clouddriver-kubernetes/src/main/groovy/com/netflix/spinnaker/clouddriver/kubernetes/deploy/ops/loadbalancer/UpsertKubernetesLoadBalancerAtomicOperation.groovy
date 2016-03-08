@@ -39,14 +39,14 @@ class UpsertKubernetesLoadBalancerAtomicOperation implements AtomicOperation<Map
   }
 
   /*
-   * curl -X POST -H "Content-Type: application/json" -d  '[ {  "upsertLoadBalancer": { "name": "service",  "ports": [ { "name": "http", "port": 80, "targetPort": 9376 } ], "credentials":  "my-kubernetes-account" } } ]' localhost:7002/kubernetes/ops
+   * curl -X POST -H "Content-Type: application/json" -d  '[ {  "upsertLoadBalancer": { "name": "service",  "ports": [ { "name": "http", "port": 80, "targetPort": 9376 } ], "account":  "my-kubernetes-account" } } ]' localhost:7002/kubernetes/ops
   */
   @Override
   Map operate(List priorOutputs) {
     task.updateStatus BASE_PHASE, "Initializing upsert of load balancer $description.name..."
     task.updateStatus BASE_PHASE, "Looking up provided namespace..."
 
-    def credentials = description.kubernetesCredentials
+    def credentials = description.credentials
     def namespace = KubernetesUtil.validateNamespace(credentials, description.namespace)
     def name = description.name
 
@@ -88,8 +88,8 @@ class UpsertKubernetesLoadBalancerAtomicOperation implements AtomicOperation<Map
 
       serviceBuilder = port.name ? serviceBuilder.withName(port.name) : serviceBuilder
       serviceBuilder = port.targetPort ? serviceBuilder.withNewTargetPort(port.targetPort) : serviceBuilder
-      serviceBuilder = port.port ? serviceBuilder.withPort(port.targetPort) : serviceBuilder
-      serviceBuilder = port.nodePort ? serviceBuilder.withNodePort(port.targetPort) : serviceBuilder
+      serviceBuilder = port.port ? serviceBuilder.withPort(port.port) : serviceBuilder
+      serviceBuilder = port.nodePort ? serviceBuilder.withNodePort(port.nodePort) : serviceBuilder
       serviceBuilder = port.protocol ? serviceBuilder.withProtocol(port.protocol) : serviceBuilder
 
       serviceBuilder = serviceBuilder.endPort()
@@ -105,9 +105,23 @@ class UpsertKubernetesLoadBalancerAtomicOperation implements AtomicOperation<Map
 
     task.updateStatus BASE_PHASE, "Setting type..."
 
-    def type = description.type != null ? description.type : existingService?.spec?.type
-
+    def type = description.serviceType != null ? description.serviceType : existingService?.spec?.type
     serviceBuilder = type ? serviceBuilder.withType(type) : serviceBuilder
+
+    task.updateStatus BASE_PHASE, "Setting load balancer IP..."
+
+    def loadBalancerIp = description.loadBalancerIp != null ? description.loadBalancerIp : existingService?.spec?.loadBalancerIP
+    serviceBuilder = loadBalancerIp ? serviceBuilder.withLoadBalancerIP(loadBalancerIp) : serviceBuilder
+
+    task.updateStatus BASE_PHASE, "Setting cluster IP..."
+
+    def clusterIp = description.clusterIp != null ? description.clusterIp : existingService?.spec?.clusterIP
+    serviceBuilder = clusterIp ? serviceBuilder.withClusterIP(clusterIp) : serviceBuilder
+
+    task.updateStatus BASE_PHASE, "Setting session affinity..."
+
+    def sessionAffinity = description.sessionAffinity != null ? description.sessionAffinity : existingService?.spec?.sessionAffinity
+    serviceBuilder = sessionAffinity ? serviceBuilder.withSessionAffinity(sessionAffinity) : serviceBuilder
 
     serviceBuilder = serviceBuilder.endSpec()
 

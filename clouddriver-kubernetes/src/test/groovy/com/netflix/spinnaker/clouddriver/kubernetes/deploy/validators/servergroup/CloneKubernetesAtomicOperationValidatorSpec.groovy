@@ -19,6 +19,7 @@ package com.netflix.spinnaker.clouddriver.kubernetes.deploy.validators.servergro
 import com.netflix.spinnaker.clouddriver.docker.registry.security.DockerRegistryNamedAccountCredentials
 import com.netflix.spinnaker.clouddriver.kubernetes.api.KubernetesApiAdaptor
 import com.netflix.spinnaker.clouddriver.kubernetes.config.LinkedDockerRegistryConfiguration
+import com.netflix.spinnaker.clouddriver.kubernetes.deploy.KubernetesUtil
 import com.netflix.spinnaker.clouddriver.kubernetes.deploy.description.servergroup.CloneKubernetesAtomicOperationDescription
 import com.netflix.spinnaker.clouddriver.kubernetes.deploy.description.servergroup.KubernetesContainerDescription
 import com.netflix.spinnaker.clouddriver.kubernetes.deploy.description.servergroup.KubernetesResourceDescription
@@ -49,7 +50,7 @@ class CloneKubernetesAtomicOperationValidatorSpec extends Specification {
   private static final VALID_MEMORY2 = "200Mi"
   private static final VALID_CPU1 = "200"
   private static final VALID_CPU2 = "200m"
-  private static final VALID_CREDENTIALS = "auto"
+  private static final VALID_ACCOUNT = "auto"
   private static final VALID_LOAD_BALANCERS = ["x", "y"]
   private static final VALID_SECURITY_GROUPS = ["a-1", "b-2"]
   private static final VALID_SOURCE_SERVER_GROUP_NAME = "myapp-test-v000"
@@ -63,7 +64,7 @@ class CloneKubernetesAtomicOperationValidatorSpec extends Specification {
   private static final INVALID_NAME = "a?name"
   private static final INVALID_MEMORY = "200asdf"
   private static final INVALID_CPU = "-1_"
-  private static final INVALID_CREDENTIALS = "valid"
+  private static final INVALID_ACCOUNT = "valid"
   private static final INVALID_LOAD_BALANCERS = [" ", "--"]
   private static final INVALID_SECURITY_GROUPS = [" ", "--"]
 
@@ -90,9 +91,9 @@ class CloneKubernetesAtomicOperationValidatorSpec extends Specification {
     })
 
     def credentials = new KubernetesCredentials(apiMock, NAMESPACES, DOCKER_REGISTRY_ACCOUNTS, accountCredentialsRepositoryMock)
-    namedCredentialsMock.getName() >> VALID_CREDENTIALS
+    namedCredentialsMock.getName() >> VALID_ACCOUNT
     namedCredentialsMock.getCredentials() >> credentials
-    credentialsRepo.save(VALID_CREDENTIALS, namedCredentialsMock)
+    credentialsRepo.save(VALID_ACCOUNT, namedCredentialsMock)
     validator.accountCredentialsProvider = credentialsProvider
   }
 
@@ -108,16 +109,18 @@ class CloneKubernetesAtomicOperationValidatorSpec extends Specification {
   KubernetesResourceDescription fullInvalidResourceDescription
 
   void setup() {
+    def imageDescription = KubernetesUtil.buildImageDescription(VALID_IMAGE)
+
     fullValidResourceDescription1 = new KubernetesResourceDescription(memory: VALID_MEMORY1, cpu: VALID_CPU1)
     fullValidResourceDescription2 = new KubernetesResourceDescription(memory: VALID_MEMORY2, cpu: VALID_CPU2)
     partialValidResourceDescription = new KubernetesResourceDescription(memory: VALID_MEMORY1)
-    fullValidContainerDescription1 = new KubernetesContainerDescription(name: VALID_NAME, image: VALID_IMAGE, limits: fullValidResourceDescription1, requests: fullValidResourceDescription1)
-    fullValidContainerDescription2 = new KubernetesContainerDescription(name: VALID_NAME, image: VALID_IMAGE, limits: fullValidResourceDescription2, requests: fullValidResourceDescription2)
-    partialValidContainerDescription = new KubernetesContainerDescription(name: VALID_NAME, image: VALID_IMAGE, limits: partialValidResourceDescription)
+    fullValidContainerDescription1 = new KubernetesContainerDescription(name: VALID_NAME, imageDescription: imageDescription, limits: fullValidResourceDescription1, requests: fullValidResourceDescription1)
+    fullValidContainerDescription2 = new KubernetesContainerDescription(name: VALID_NAME, imageDescription: imageDescription, limits: fullValidResourceDescription2, requests: fullValidResourceDescription2)
+    partialValidContainerDescription = new KubernetesContainerDescription(name: VALID_NAME, imageDescription: imageDescription, limits: partialValidResourceDescription)
 
     fullInvalidResourceDescription = new KubernetesResourceDescription(memory: INVALID_MEMORY, cpu: INVALID_CPU)
-    fullInvalidContainerDescription = new KubernetesContainerDescription(name: INVALID_NAME, image: INVALID_IMAGE, limits: fullInvalidResourceDescription, requests: fullInvalidResourceDescription)
-    partialInvalidContainerDescription = new KubernetesContainerDescription(name: INVALID_NAME, image: INVALID_IMAGE)
+    fullInvalidContainerDescription = new KubernetesContainerDescription(name: INVALID_NAME, limits: fullInvalidResourceDescription, requests: fullInvalidResourceDescription)
+    partialInvalidContainerDescription = new KubernetesContainerDescription(name: INVALID_NAME)
   }
 
   void "validation accept (all fields filled)"() {
@@ -132,7 +135,7 @@ class CloneKubernetesAtomicOperationValidatorSpec extends Specification {
         ],
         loadBalancers: VALID_LOAD_BALANCERS,
         securityGroups: VALID_SECURITY_GROUPS,
-        credentials: VALID_CREDENTIALS,
+        account: VALID_ACCOUNT,
         source: [
           serverGroupName: VALID_SOURCE_SERVER_GROUP_NAME
         ])
@@ -149,7 +152,7 @@ class CloneKubernetesAtomicOperationValidatorSpec extends Specification {
         source: [
           serverGroupName: VALID_SOURCE_SERVER_GROUP_NAME
         ],
-        credentials: VALID_CREDENTIALS)
+        account: VALID_ACCOUNT)
       def errorsMock = Mock(Errors)
     when:
       validator.validate([], description, errorsMock)
@@ -172,7 +175,7 @@ class CloneKubernetesAtomicOperationValidatorSpec extends Specification {
     when:
       validator.validate([], description, errorsMock)
     then:
-      1 * errorsMock.rejectValue("${DESCRIPTION}.credentials", "${DESCRIPTION}.credentials.empty")
+      1 * errorsMock.rejectValue("${DESCRIPTION}.account", "${DESCRIPTION}.account.empty")
       0 * errorsMock._
   }
 
@@ -184,7 +187,7 @@ class CloneKubernetesAtomicOperationValidatorSpec extends Specification {
         containers: [
           partialValidContainerDescription
         ],
-        credentials: VALID_CREDENTIALS,
+        account: VALID_ACCOUNT,
         source: [
           serverGroupName: VALID_SOURCE_SERVER_GROUP_NAME
         ])
@@ -204,7 +207,7 @@ class CloneKubernetesAtomicOperationValidatorSpec extends Specification {
         containers: [
           partialValidContainerDescription
         ],
-        credentials: VALID_CREDENTIALS,
+        account: VALID_ACCOUNT,
         source: [
           serverGroupName: VALID_SOURCE_SERVER_GROUP_NAME
         ])
@@ -225,7 +228,7 @@ class CloneKubernetesAtomicOperationValidatorSpec extends Specification {
         containers: [
           partialValidContainerDescription
         ],
-        credentials: VALID_CREDENTIALS,
+        account: VALID_ACCOUNT,
         source: [
           serverGroupName: VALID_SOURCE_SERVER_GROUP_NAME
         ])
@@ -245,7 +248,7 @@ class CloneKubernetesAtomicOperationValidatorSpec extends Specification {
         containers: [
           partialInvalidContainerDescription
         ],
-        credentials: VALID_CREDENTIALS,
+        account: VALID_ACCOUNT,
         source: [
           serverGroupName: VALID_SOURCE_SERVER_GROUP_NAME
         ])
@@ -254,7 +257,7 @@ class CloneKubernetesAtomicOperationValidatorSpec extends Specification {
       validator.validate([], description, errorsMock)
     then:
       1 * errorsMock.rejectValue("${DESCRIPTION}.container[0].name", "${DESCRIPTION}.container[0].name.invalid (Must match ${StandardKubernetesAttributeValidator.namePattern})")
-      1 * errorsMock.rejectValue("${DESCRIPTION}.container[0].image", "${DESCRIPTION}.container[0].image.empty")
+      1 * errorsMock.rejectValue("${DESCRIPTION}.container[0].imageDescription", "${DESCRIPTION}.container[0].imageDescription.empty")
       0 * errorsMock._
   }
 
@@ -266,7 +269,7 @@ class CloneKubernetesAtomicOperationValidatorSpec extends Specification {
         containers: [
           fullInvalidContainerDescription
         ],
-        credentials: VALID_CREDENTIALS,
+        account: VALID_ACCOUNT,
         source: [
           serverGroupName: VALID_SOURCE_SERVER_GROUP_NAME
         ])
@@ -275,7 +278,7 @@ class CloneKubernetesAtomicOperationValidatorSpec extends Specification {
       validator.validate([], description, errorsMock)
     then:
       1 * errorsMock.rejectValue("${DESCRIPTION}.container[0].name", "${DESCRIPTION}.container[0].name.invalid (Must match ${StandardKubernetesAttributeValidator.namePattern})")
-      1 * errorsMock.rejectValue("${DESCRIPTION}.container[0].image", "${DESCRIPTION}.container[0].image.empty")
+      1 * errorsMock.rejectValue("${DESCRIPTION}.container[0].imageDescription", "${DESCRIPTION}.container[0].imageDescription.empty")
       1 * errorsMock.rejectValue("${DESCRIPTION}.container[0].requests.memory", "${DESCRIPTION}.container[0].requests.memory.invalid (Must match ${StandardKubernetesAttributeValidator.quantityPattern})")
       1 * errorsMock.rejectValue("${DESCRIPTION}.container[0].limits.memory", "${DESCRIPTION}.container[0].limits.memory.invalid (Must match ${StandardKubernetesAttributeValidator.quantityPattern})")
       1 * errorsMock.rejectValue("${DESCRIPTION}.container[0].requests.cpu", "${DESCRIPTION}.container[0].requests.cpu.invalid (Must match ${StandardKubernetesAttributeValidator.quantityPattern})")
@@ -292,7 +295,7 @@ class CloneKubernetesAtomicOperationValidatorSpec extends Specification {
           partialValidContainerDescription
         ],
         loadBalancers: INVALID_LOAD_BALANCERS,
-        credentials: VALID_CREDENTIALS,
+        account: VALID_ACCOUNT,
         source: [
           serverGroupName: VALID_SOURCE_SERVER_GROUP_NAME
         ])
@@ -314,7 +317,7 @@ class CloneKubernetesAtomicOperationValidatorSpec extends Specification {
           partialValidContainerDescription
         ],
         securityGroups: INVALID_SECURITY_GROUPS,
-        credentials: VALID_CREDENTIALS,
+        account: VALID_ACCOUNT,
         source: [
           serverGroupName: VALID_SOURCE_SERVER_GROUP_NAME
         ])
@@ -339,7 +342,7 @@ class CloneKubernetesAtomicOperationValidatorSpec extends Specification {
         ],
         loadBalancers: VALID_LOAD_BALANCERS,
         securityGroups: VALID_SECURITY_GROUPS,
-        credentials: VALID_CREDENTIALS
+        account: VALID_ACCOUNT
       )
       def errorsMock = Mock(Errors)
     when:
@@ -361,7 +364,7 @@ class CloneKubernetesAtomicOperationValidatorSpec extends Specification {
         ],
         loadBalancers: VALID_LOAD_BALANCERS,
         securityGroups: VALID_SECURITY_GROUPS,
-        credentials: VALID_CREDENTIALS,
+        account: VALID_ACCOUNT,
         source: [
           serverGroupName: ""
         ]

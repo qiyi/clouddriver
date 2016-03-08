@@ -18,6 +18,8 @@ package com.netflix.spinnaker.clouddriver.google.security;
 
 import com.google.api.client.googleapis.auth.oauth2.GoogleCredential;
 import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport;
+import com.google.api.client.http.HttpRequest;
+import com.google.api.client.http.HttpRequestInitializer;
 import com.google.api.client.http.HttpTransport;
 import com.google.api.client.json.JsonFactory;
 import com.google.api.client.json.jackson2.JacksonFactory;
@@ -26,6 +28,7 @@ import com.google.api.services.compute.ComputeScopes;
 import com.google.api.services.compute.model.Region;
 import com.google.api.services.compute.model.RegionList;
 import com.google.common.annotations.VisibleForTesting;
+import com.netflix.spinnaker.clouddriver.google.GoogleCloudProvider;
 import com.netflix.spinnaker.clouddriver.security.AccountCredentials;
 
 import java.io.ByteArrayInputStream;
@@ -71,7 +74,7 @@ public class GoogleNamedAccountCredentials implements AccountCredentials<GoogleC
 
     @Override
     public String getCloudProvider() {
-      return CLOUD_PROVIDER;
+      return GoogleCloudProvider.GCE;
     }
 
     public Map<String, List<String>> getRegions() {
@@ -82,6 +85,17 @@ public class GoogleNamedAccountCredentials implements AccountCredentials<GoogleC
       return credentials;
     }
 
+    private HttpRequestInitializer setHttpTimeout(final HttpRequestInitializer requestInitializer) {
+       return new HttpRequestInitializer() {
+         @Override
+         public void initialize(HttpRequest httpRequest) throws IOException {
+           requestInitializer.initialize(httpRequest);
+           httpRequest.setConnectTimeout(2 * 60000);  // 2 minutes connect timeout
+           httpRequest.setReadTimeout(2 * 60000);  // 2 minutes read timeout
+         }
+       };
+     }
+
     private GoogleCredentials buildCredentials() {
       JsonFactory jsonFactory = JacksonFactory.getDefaultInstance();
       HttpTransport httpTransport = buildHttpTransport();
@@ -91,7 +105,7 @@ public class GoogleNamedAccountCredentials implements AccountCredentials<GoogleC
           try (InputStream credentialStream = new ByteArrayInputStream(jsonKey.getBytes())) {
             // JSON key was specified in matching config on key server.
             GoogleCredential credential = GoogleCredential.fromStream(credentialStream, httpTransport, jsonFactory).createScoped(Collections.singleton(ComputeScopes.COMPUTE));
-            Compute compute = new Compute.Builder(httpTransport, jsonFactory, null).setApplicationName(applicationName).setHttpRequestInitializer(credential).build();
+            Compute compute = new Compute.Builder(httpTransport, jsonFactory, null).setApplicationName(applicationName).setHttpRequestInitializer(setHttpTimeout(credential)).build();
 
             return new GoogleCredentials(projectName, compute, imageProjects);
           }
@@ -167,7 +181,6 @@ public class GoogleNamedAccountCredentials implements AccountCredentials<GoogleC
       return applicationName;
     }
 
-    private static final String CLOUD_PROVIDER = "gce";
     private final Map<String, List<String>> regionToZonesMap;
     private final String accountName;
     private final String environment;

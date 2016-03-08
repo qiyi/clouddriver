@@ -18,14 +18,14 @@ package com.netflix.spinnaker.clouddriver.google.model
 
 import com.fasterxml.jackson.annotation.JsonAnyGetter
 import com.fasterxml.jackson.annotation.JsonAnySetter
+import com.netflix.spinnaker.clouddriver.google.GoogleCloudProvider
 import com.netflix.spinnaker.clouddriver.google.model.callbacks.Utils
 import com.netflix.spinnaker.clouddriver.model.HealthState
 import com.netflix.spinnaker.clouddriver.model.Instance
 import com.netflix.spinnaker.clouddriver.model.ServerGroup
 
+@Deprecated
 class GoogleServerGroup implements ServerGroup, Serializable {
-
-  private static final String GOOGLE_SERVER_GROUP_TYPE = "gce"
 
   String name
   String region
@@ -78,7 +78,7 @@ class GoogleServerGroup implements ServerGroup, Serializable {
 
   @Override
   String getType() {
-    return GOOGLE_SERVER_GROUP_TYPE
+    return GoogleCloudProvider.GCE
   }
 
   @Override
@@ -129,23 +129,33 @@ class GoogleServerGroup implements ServerGroup, Serializable {
   }
 
   @Override
-  ServerGroup.ImageSummary getImageSummary() {
+  ServerGroup.ImagesSummary getImagesSummary() {
     def bi = buildInfo
-    return new ServerGroup.ImageSummary() {
-      String serverGroupName = name
-      String imageName = launchConfig?.instanceTemplate?.name
-      String imageId = launchConfig?.imageId
-
+    return new ServerGroup.ImagesSummary() {
       @Override
-      Map<String, Object> getBuildInfo() {
-        return bi
-      }
+      List<ServerGroup.ImageSummary> getSummaries() {
+      return [new ServerGroup.ImageSummary() {
+          String serverGroupName = name
+          String imageName = launchConfig?.instanceTemplate?.name
+          String imageId = launchConfig?.imageId
 
-      @Override
-      Map<String, Object> getImage() {
-        return launchConfig?.instanceTemplate
+          @Override
+          Map<String, Object> getBuildInfo() {
+            return bi
+          }
+
+          @Override
+          Map<String, Object> getImage() {
+            return launchConfig?.instanceTemplate
+          }
+        }]
       }
     }
+  }
+
+  @Override
+  ServerGroup.ImageSummary getImageSummary() {
+    imagesSummary?.summaries?.get(0)
   }
 
   static Collection<Instance> filterInstancesByHealthState(Set<Instance> instances, HealthState healthState) {

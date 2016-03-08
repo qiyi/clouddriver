@@ -29,8 +29,11 @@ class UpsertKubernetesLoadBalancerAtomicOperationDescription extends KubernetesA
 
   List<KubernetesNamedServicePort> ports
   List<String> externalIps
+  String clusterIp
+  String loadBalancerIp
+  String sessionAffinity
 
-  String type
+  String serviceType
 }
 
 @AutoClone

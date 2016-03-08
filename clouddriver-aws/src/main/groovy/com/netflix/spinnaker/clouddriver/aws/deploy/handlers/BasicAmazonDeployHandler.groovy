@@ -99,17 +99,28 @@ class BasicAmazonDeployHandler implements DeployHandler<BasicAmazonDeployDescrip
       def amazonEC2 = regionScopedProvider.amazonEC2
 
       String classicLinkVpcId = null
+      List<String> classicLinkVpcSecurityGroups = null
       if (!subnetType) {
-        def result = amazonEC2.describeVpcClassicLink()
-        def classicLinkVpc = result.vpcs.find { it.classicLinkEnabled }
-        if (classicLinkVpc) {
-          classicLinkVpcId = classicLinkVpc.vpcId
+        classicLinkVpcId = description.classicLinkVpcId
+        if (!classicLinkVpcId) {
+          def result = amazonEC2.describeVpcClassicLink()
+          def classicLinkVpc = result.vpcs.find { it.classicLinkEnabled }
+          if (classicLinkVpc) {
+            classicLinkVpcId = classicLinkVpc.vpcId
+          }
+        }
+        if (classicLinkVpcId) {
+          classicLinkVpcSecurityGroups = description.classicLinkVpcSecurityGroups
+          if (!classicLinkVpcSecurityGroups) {
+            if (deployDefaults.classicLinkSecurityGroupName) {
+              classicLinkVpcSecurityGroups = [deployDefaults.classicLinkSecurityGroupName]
+            }
+          }
         }
       }
 
-      def blockDeviceMappingForInstanceType = BlockDeviceConfig.blockDevicesByInstanceType[description.instanceType]
-      if (blockDeviceMappingForInstanceType) {
-        description.blockDevices = blockDeviceMappingForInstanceType
+      if (description.blockDevices == null) {
+        description.blockDevices = BlockDeviceConfig.blockDevicesByInstanceType[description.instanceType]
       }
 
       // find by 1) result of a previous step (we performed allow launch)
@@ -135,6 +146,10 @@ class BasicAmazonDeployHandler implements DeployHandler<BasicAmazonDeployDescrip
         throw new IllegalArgumentException("Unsupported account type ${account.class.simpleName} for this operation")
       }
 
+      if (description.useAmiBlockDeviceMappings) {
+        description.blockDevices = convertBlockDevices(ami.blockDeviceMappings)
+      }
+
       def autoScalingWorker = new AutoScalingWorker(
         application: description.application,
         region: region,
@@ -143,6 +158,7 @@ class BasicAmazonDeployHandler implements DeployHandler<BasicAmazonDeployDescrip
         freeFormDetails: description.freeFormDetails,
         ami: ami.amiId,
         classicLinkVpcId: classicLinkVpcId,
+        classicLinkVpcSecurityGroups: classicLinkVpcSecurityGroups,
         minInstances: description.capacity.min,
         maxInstances: description.capacity.max,
         desiredInstances: description.capacity.desired,
@@ -168,7 +184,8 @@ class BasicAmazonDeployHandler implements DeployHandler<BasicAmazonDeployDescrip
         instanceMonitoring: description.instanceMonitoring,
         ebsOptimized: description.ebsOptimized,
         regionScopedProvider: regionScopedProvider,
-        base64UserData: description.base64UserData)
+        base64UserData: description.base64UserData,
+        tags: description.tags)
 
       def asgName = autoScalingWorker.deploy()
 

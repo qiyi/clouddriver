@@ -23,6 +23,8 @@ import com.netflix.spinnaker.clouddriver.deploy.DeploymentResult
 import com.netflix.spinnaker.clouddriver.kubernetes.deploy.KubernetesUtil
 import com.netflix.spinnaker.clouddriver.kubernetes.deploy.description.servergroup.CloneKubernetesAtomicOperationDescription
 import com.netflix.spinnaker.clouddriver.kubernetes.deploy.description.servergroup.KubernetesContainerDescription
+import com.netflix.spinnaker.clouddriver.kubernetes.deploy.description.servergroup.KubernetesContainerPort
+import com.netflix.spinnaker.clouddriver.kubernetes.deploy.description.servergroup.KubernetesImageDescription
 import com.netflix.spinnaker.clouddriver.kubernetes.deploy.description.servergroup.KubernetesResourceDescription
 import com.netflix.spinnaker.clouddriver.kubernetes.deploy.exception.KubernetesResourceNotFoundException
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation
@@ -42,8 +44,8 @@ class CloneKubernetesAtomicOperation implements AtomicOperation<DeploymentResult
   CloneKubernetesAtomicOperationDescription description
 
   /*
-   * curl -X POST -H "Content-Type: application/json" -d  '[ { "cloneServerGroup": { "source": { "serverGroupName": "kub-test-v000" }, "credentials":  "my-kubernetes-account" } } ]' localhost:7002/kubernetes/ops
-   * curl -X POST -H "Content-Type: application/json" -d  '[ { "cloneServerGroup": { "stack": "prod", "freeFormDetails": "mdservice", "targetSize": "4", "source": { "serverGroupName": "kub-test-v000" }, "credentials":  "my-kubernetes-account" } } ]' localhost:7002/kubernetes/ops
+   * curl -X POST -H "Content-Type: application/json" -d  '[ { "cloneServerGroup": { "source": { "serverGroupName": "kub-test-v000" }, "account":  "my-kubernetes-account" } } ]' localhost:7002/kubernetes/ops
+   * curl -X POST -H "Content-Type: application/json" -d  '[ { "cloneServerGroup": { "stack": "prod", "freeFormDetails": "mdservice", "targetSize": "4", "source": { "serverGroupName": "kub-test-v000" }, "account":  "my-kubernetes-account" } } ]' localhost:7002/kubernetes/ops
   */
   @Override
   DeploymentResult operate(List priorOutputs) {
@@ -70,7 +72,7 @@ class CloneKubernetesAtomicOperation implements AtomicOperation<DeploymentResult
 
     task.updateStatus BASE_PHASE, "Reading ancestor server group ${description.source.serverGroupName}..."
 
-    def credentials = description.kubernetesCredentials
+    def credentials = description.credentials
 
     description.source.namespace = description.source.namespace ?: "default"
     ReplicationController ancestorServerGroup = credentials.apiAdaptor.getReplicationController(description.source.namespace, description.source.serverGroupName)
@@ -92,8 +94,9 @@ class CloneKubernetesAtomicOperation implements AtomicOperation<DeploymentResult
     if (!description.containers) {
       newDescription.containers = []
       ancestorServerGroup.spec?.template?.spec?.containers?.each { it ->
-        def newLimits
-        def newRequests
+        KubernetesResourceDescription newLimits = null
+        KubernetesResourceDescription newRequests = null
+        List<KubernetesContainerPort> newPorts
         if (it.resources?.limits) {
           newLimits = new KubernetesResourceDescription()
           if (it.resources.limits.memory) {
@@ -114,7 +117,25 @@ class CloneKubernetesAtomicOperation implements AtomicOperation<DeploymentResult
             newRequests.cpu = it.resources.requests.cpu.amount
           }
         }
-        def newContainer = new KubernetesContainerDescription(it.name, it.image, newRequests, newLimits)
+
+        newPorts = it.ports?.collect {
+          new KubernetesContainerPort([
+            name: it.name,
+            containerPort: it.containerPort,
+            hostPort: it.hostPort,
+            protocol: it.protocol,
+            hostIp: it.hostIP,
+          ])
+        }
+
+        def newContainer = new KubernetesContainerDescription([
+          name: it.name,
+          imageDescription: KubernetesUtil.buildImageDescription(it.image),
+          requests: newRequests,
+          limits: newLimits,
+          ports: newPorts,
+        ])
+
         newDescription.containers.push(newContainer)
       }
     }

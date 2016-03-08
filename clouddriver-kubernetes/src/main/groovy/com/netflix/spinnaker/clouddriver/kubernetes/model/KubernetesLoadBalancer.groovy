@@ -20,6 +20,7 @@ import com.netflix.spinnaker.clouddriver.model.LoadBalancer
 import groovy.transform.CompileStatic
 import groovy.transform.EqualsAndHashCode
 import io.fabric8.kubernetes.api.model.Service
+import io.fabric8.kubernetes.client.internal.SerializationUtils
 
 @CompileStatic
 @EqualsAndHashCode(includes = ["name", "accountName"])
@@ -28,16 +29,18 @@ class KubernetesLoadBalancer implements LoadBalancer, Serializable {
   String type = "kubernetes"
   String region
   String namespace
-  String accountName
+  String account
+  Long createdTime
   Service service
+  String yaml
   // Set of server groups represented as maps of strings -> objects.
-  Set<Map<String, Object>> serverGroups = [] as Set
+  Set<Map<String, Object>> serverGroups
 
   KubernetesLoadBalancer(String name, String namespace, String accountName) {
     this.name = name
     this.namespace = namespace
     this.region = namespace
-    this.accountName = accountName
+    this.account = accountName
   }
 
   KubernetesLoadBalancer(Service service, List<KubernetesServerGroup> serverGroupList, String accountName) {
@@ -45,9 +48,11 @@ class KubernetesLoadBalancer implements LoadBalancer, Serializable {
     this.name = service.metadata.name
     this.namespace = service.metadata.namespace
     this.region = this.namespace
-    this.accountName = accountName
-    this.serverGroups = serverGroupList.collect { KubernetesServerGroup serverGroup
-      [name: serverGroup.name, serverGroup: serverGroup]
+    this.account = accountName
+    this.createdTime = KubernetesModelUtil.translateTime(service.metadata?.creationTimestamp)
+    this.yaml = SerializationUtils.dumpWithoutRuntimeStateAsYaml(service)
+    this.serverGroups = serverGroupList?.collect {
+      [name: it?.name, serverGroup: it]
     } as Set
   }
 }

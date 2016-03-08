@@ -16,6 +16,7 @@
 
 package com.netflix.spinnaker.clouddriver.azure.config
 
+import com.netflix.spinnaker.clouddriver.azure.resources.vmimage.model.AzureVMImage
 import groovy.transform.ToString
 
 class AzureConfigurationProperties {
@@ -30,7 +31,7 @@ class AzureConfigurationProperties {
     String tenantId
     String subscriptionId
     List<String> regions
-
+    List<AzureVMImage> vmImages
   }
 
   List<ManagedAccount> accounts = []

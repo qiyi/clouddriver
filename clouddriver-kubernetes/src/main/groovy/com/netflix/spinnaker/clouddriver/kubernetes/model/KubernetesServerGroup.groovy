@@ -16,13 +16,19 @@
 
 package com.netflix.spinnaker.clouddriver.kubernetes.model
 
+import com.netflix.frigga.Names
+import com.netflix.spinnaker.clouddriver.kubernetes.api.KubernetesApiAdaptor
 import com.netflix.spinnaker.clouddriver.kubernetes.deploy.KubernetesUtil
+import com.netflix.spinnaker.clouddriver.kubernetes.deploy.description.servergroup.DeployKubernetesAtomicOperationDescription
+import com.netflix.spinnaker.clouddriver.kubernetes.deploy.description.servergroup.KubernetesContainerDescription
+import com.netflix.spinnaker.clouddriver.kubernetes.deploy.description.servergroup.KubernetesContainerPort
 import com.netflix.spinnaker.clouddriver.model.HealthState
 import com.netflix.spinnaker.clouddriver.model.ServerGroup
 import groovy.transform.CompileStatic
 import groovy.transform.EqualsAndHashCode
 import io.fabric8.kubernetes.api.model.Container
 import io.fabric8.kubernetes.api.model.ReplicationController
+import io.fabric8.kubernetes.client.internal.SerializationUtils
 
 @CompileStatic
 @EqualsAndHashCode(includes = ["name"])
@@ -30,6 +36,8 @@ class KubernetesServerGroup implements ServerGroup, Serializable {
   String name
   String type = "kubernetes"
   String region
+  String namespace
+  String account
   Long createdTime
   Integer replicas = 0
   Set<String> zones
@@ -38,8 +46,9 @@ class KubernetesServerGroup implements ServerGroup, Serializable {
   Set<String> securityGroups
   Map<String, Object> launchConfig
   Map<String, String> labels = [:]
-  List<Container> containers
+  DeployKubernetesAtomicOperationDescription deployDescription
   ReplicationController replicationController
+  String yaml
 
   Boolean isDisabled() {
     this.labels ? !(this.labels.any { key, value -> KubernetesUtil.isLoadBalancerLabel(key) && value == "true" }) : false
@@ -48,11 +57,14 @@ class KubernetesServerGroup implements ServerGroup, Serializable {
   KubernetesServerGroup(String name, String namespace) {
     this.name = name
     this.region = namespace
+    this.namespace = namespace
   }
 
-  KubernetesServerGroup(ReplicationController replicationController, Set<KubernetesInstance> instances) {
+  KubernetesServerGroup(ReplicationController replicationController, Set<KubernetesInstance> instances, String account) {
     this.name = replicationController.metadata?.name
+    this.account = account
     this.region = replicationController.metadata?.namespace
+    this.namespace = this.region
     this.createdTime = KubernetesModelUtil.translateTime(replicationController.metadata?.creationTimestamp)
     this.zones = [this.region] as Set
     this.instances = instances
@@ -61,8 +73,9 @@ class KubernetesServerGroup implements ServerGroup, Serializable {
     this.loadBalancers = KubernetesUtil.getDescriptionLoadBalancers(replicationController) as Set
     this.launchConfig = [:]
     this.labels = replicationController.spec?.template?.metadata?.labels
-    this.containers = replicationController.spec?.template?.spec?.containers
+    this.deployDescription = KubernetesApiAdaptor.fromReplicationController(replicationController)
     this.replicationController = replicationController
+    this.yaml = SerializationUtils.dumpWithoutRuntimeStateAsYaml(replicationController)
   }
 
   @Override
@@ -82,12 +95,39 @@ class KubernetesServerGroup implements ServerGroup, Serializable {
   }
 
   @Override
+  ServerGroup.ImagesSummary getImagesSummary() {
+    return new ServerGroup.ImagesSummary() {
+      @Override
+      List<ServerGroup.ImageSummary> getSummaries () {
+        deployDescription.containers.collect({ KubernetesContainerDescription it ->
+          new ServerGroup.ImageSummary() {
+            String serverGroupName = name
+            String imageName = it.name
+            String imageId = KubernetesUtil.getImageId(it.imageDescription)
+
+            @Override
+            Map<String, Object> getBuildInfo() {
+              return [:]
+            }
+
+            @Override
+            Map<String, Object> getImage() {
+              return [
+                container: it.name,
+                registry: it.imageDescription.registry,
+                tag: it.imageDescription.tag,
+                repository: it.imageDescription.repository,
+                imageId: imageId
+              ]
+            }
+          }
+        })
+      }
+    }
+  }
+
+  @Override
   ServerGroup.ImageSummary getImageSummary() {
-    // TODO(lwander): Massage into more kubernetes native format (multiple images per server group).
-    return new KubernetesImageSummary(
-      image: containers?.collectEntries { [(it.name): it.image] },
-      serverGroupName: this.name,
-      imageName: containers[0]?.image // TODO(lwander): See above.
-    )
+    imagesSummary?.summaries?.get(0)
   }
 }

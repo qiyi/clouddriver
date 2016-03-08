@@ -27,7 +27,8 @@ class StandardKubernetesAttributeValidator {
   static final prefixPattern = /^[a-z0-9]+$/
   static final quantityPattern = /^([+-]?[0-9.]+)([eEimkKMGTP]*[-+]?[0-9]*)$/
   static final protocolList = ['TCP', 'UDP']
-  static final serviceTypeList= ['LoadBalancer']
+  static final serviceTypeList = ['ClusterIP', 'NodePort', 'LoadBalancer']
+  static final sessionAffinityList = ['None', 'ClientIP']
   static final maxPort = (1 << 16) - 1
 
   String context
@@ -84,6 +85,10 @@ class StandardKubernetesAttributeValidator {
     } else {
       return false
     }
+  }
+
+  def validateSessionAffinity(String value, String attribute) {
+    value ? validateByContainment(value, attribute, sessionAffinityList) : null
   }
 
   def validateIpv4(String value, String attribute) {
@@ -174,11 +179,11 @@ class StandardKubernetesAttributeValidator {
   }
 
   def validateCredentials(String credentials, AccountCredentialsProvider accountCredentialsProvider) {
-    def result = validateNotEmpty(credentials, "credentials")
+    def result = validateNotEmpty(credentials, "account")
     if (result) {
       def kubernetesCredentials = accountCredentialsProvider.getCredentials(credentials)
       if (!(kubernetesCredentials?.credentials instanceof KubernetesCredentials)) {
-        errors.rejectValue("${context}.credentials",  "${context}.credentials.notFound")
+        errors.rejectValue("${context}.account",  "${context}.account.notFound")
         result = false
       }
     }

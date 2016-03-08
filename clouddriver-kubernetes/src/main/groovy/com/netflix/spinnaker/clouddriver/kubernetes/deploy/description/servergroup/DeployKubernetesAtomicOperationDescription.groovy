@@ -36,11 +36,30 @@ class DeployKubernetesAtomicOperationDescription extends KubernetesAtomicOperati
 
 @AutoClone
 @Canonical
+class KubernetesContainerPort {
+  String name
+  int containerPort
+  String protocol
+  String hostIp
+  int hostPort
+}
+
+@AutoClone
+@Canonical
+class KubernetesImageDescription {
+  String repository
+  String tag
+  String registry
+}
+
+@AutoClone
+@Canonical
 class KubernetesContainerDescription {
   String name
-  String image
+  KubernetesImageDescription imageDescription
   KubernetesResourceDescription requests
   KubernetesResourceDescription limits
+  List<KubernetesContainerPort> ports
 }
 
 @AutoClone
