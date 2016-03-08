@@ -56,27 +56,27 @@ public class DefaultAWSAccountInfoLookup implements AWSAccountInfoLookup {
             List<Vpc> vpcs = ec2.describeVpcs().getVpcs();
             boolean supportsByName = false;
             if (vpcs.isEmpty()) {
-                supportsByName = true;
+              supportsByName = true;
             } else {
-                for (Vpc vpc : vpcs) {
-                    if (vpc.getIsDefault()) {
-                        supportsByName = true;
-                        break;
-                    }
+              for (Vpc vpc : vpcs) {
+                if (vpc.getIsDefault()) {
+                  supportsByName = true;
+                  break;
                 }
+              }
             }
 
             DescribeSecurityGroupsRequest request = new DescribeSecurityGroupsRequest();
             if (supportsByName) {
-                request.withGroupNames(DEFAULT_SECURITY_GROUP_NAME);
+              request.withGroupNames(DEFAULT_SECURITY_GROUP_NAME);
             }
             DescribeSecurityGroupsResult result = ec2.describeSecurityGroups(request);
 
             for (SecurityGroup sg : result.getSecurityGroups()) {
-                //if there is a vpcId or it is the default security group it won't be an EC2 cross account group
-                if ((sg.getVpcId() != null && sg.getVpcId().length() > 0) || DEFAULT_SECURITY_GROUP_NAME.equals(sg.getGroupName())) {
-                    return sg.getOwnerId();
-                }
+              //if there is a vpcId or it is the default security group it won't be an EC2 cross account group
+              if ((sg.getVpcId() != null && sg.getVpcId().length() > 0) || DEFAULT_SECURITY_GROUP_NAME.equals(sg.getGroupName())) {
+                return sg.getOwnerId();
+              }
             }
 
             throw new IllegalArgumentException("Unable to lookup accountId with provided credentials");
@@ -108,7 +108,7 @@ public class DefaultAWSAccountInfoLookup implements AWSAccountInfoLookup {
     @Override
     public List<AWSRegion> listRegions(Collection<String> regionNames) {
         Set<String> nameSet = new HashSet<>(regionNames);
-        AmazonEC2 ec2 = new AmazonEC2Client(credentialsProvider.getCredentials());
+        AmazonEC2 ec2 = new AmazonEC2Client(credentialsProvider.getCredentials(), clientConfiguration);
         DescribeRegionsRequest request = new DescribeRegionsRequest();
         if (!nameSet.isEmpty()) {
             request.withRegionNames(regionNames);
